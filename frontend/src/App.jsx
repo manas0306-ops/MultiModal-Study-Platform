@@ -164,8 +164,14 @@ const AppContent = () => {
       <IngestionModal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
-        onUploadComplete={() => {
+        onUploadComplete={(res) => {
           setRefreshTrigger((prev) => prev + 1);
+          if (res?.document?.filename) {
+            handleNavigateWithContext('tutor', {
+              scopedDocument: res.document.filename,
+              customTopic: res.document.topic
+            });
+          }
         }}
         onNavigateWithContext={handleNavigateWithContext}
       />

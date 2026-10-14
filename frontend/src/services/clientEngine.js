@@ -361,9 +361,27 @@ export class ClientIntelligenceEngine {
 
     // 2. Hybrid Retrieval across Multimodal Knowledge Base
     const retrieval = this.retrieveGroundedUnits(query, scopeLocation);
+    const allDocs = this.getAllDocuments();
+    let preferredDoc = null;
+    const scopeDocName = scopeLocation?.document || (typeof scopeLocation === 'string' ? scopeLocation : '');
+    if (scopeDocName) {
+      preferredDoc = allDocs.find(d => d.filename.toLowerCase().includes(scopeDocName.toLowerCase()));
+    }
+    if (!preferredDoc) {
+      try {
+        const savedActive = localStorage.getItem('edupath_active_document');
+        if (savedActive) {
+          preferredDoc = allDocs.find(d => d.filename.toLowerCase().includes(savedActive.toLowerCase()));
+        }
+      } catch (_) {}
+    }
+    if (!preferredDoc) {
+      preferredDoc = allDocs[0] || COURSE_KNOWLEDGE_STORE.documents[0];
+    }
+
     const primary = retrieval.topMatches[0] || {
-      doc: COURSE_KNOWLEDGE_STORE.documents[0],
-      unit: COURSE_KNOWLEDGE_STORE.documents[0].units[0],
+      doc: preferredDoc,
+      unit: (preferredDoc?.units?.[0]) || COURSE_KNOWLEDGE_STORE.documents[0].units[0],
       bm25Score: 3.2,
       vectorScore: 0.94,
       rrfScore: 2.18
@@ -427,8 +445,15 @@ export class ClientIntelligenceEngine {
     const unit = primary.unit;
     const doc = primary.doc;
 
-    // Specific high-precision synthesis for Slide 18 / Resource Allocation Graph
-    if (qLower.includes('slide 18') || (qLower.includes('diagram') && (qLower.includes('graph') || qLower.includes('slide') || qLower.includes('visual')))) {
+    const isDeadlockContext =
+      (doc?.filename || '').toLowerCase().includes('deadlock') ||
+      (doc?.filename || '').toLowerCase().includes('lecture7') ||
+      qLower.includes('deadlock') ||
+      qLower.includes('coffman') ||
+      qLower.includes('banker');
+
+    // Specific high-precision synthesis for Slide 18 / Resource Allocation Graph (ONLY when in Deadlock context)
+    if (isDeadlockContext && (qLower.includes('slide 18') || (qLower.includes('diagram') && (qLower.includes('graph') || qLower.includes('slide') || qLower.includes('visual'))))) {
       return {
         topic: 'Deadlocks',
         concept: 'Resource Allocation Graphs (Slide 18)',
@@ -451,8 +476,8 @@ export class ClientIntelligenceEngine {
       };
     }
 
-    // Specific high-precision synthesis for Video Timestamp 21:43 / 22:17
-    if (qLower.includes('21:43') || qLower.includes('22:17') || (qLower.includes('video') && qLower.includes('timestamp')) || (qLower.includes('lecture 7') && qLower.includes('timestamp'))) {
+    // Specific high-precision synthesis for Video Timestamp 21:43 / 22:17 (ONLY when in Deadlock context)
+    if (isDeadlockContext && (qLower.includes('21:43') || qLower.includes('22:17') || (qLower.includes('video') && qLower.includes('timestamp')) || (qLower.includes('lecture 7') && qLower.includes('timestamp')))) {
       return {
         topic: 'Deadlocks',
         concept: 'Safe vs. Unsafe States (Video 21:43)',

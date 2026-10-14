@@ -146,12 +146,24 @@ export class AdaptivePhaseEngine {
    */
   static regenerateSession({ documentName = '', customTopic = '' } = {}) {
     const allDocs = ClientIntelligenceEngine.getAllDocuments();
-    const targetDoc = documentName
-      ? allDocs.find((d) => d.filename.toLowerCase().includes(documentName.toLowerCase()))
-      : allDocs[0];
+    let targetDoc = null;
+    if (documentName) {
+      targetDoc = allDocs.find((d) => d.filename.toLowerCase().includes(documentName.toLowerCase()));
+    }
+    if (!targetDoc) {
+      try {
+        const savedActive = localStorage.getItem('edupath_active_document');
+        if (savedActive) {
+          targetDoc = allDocs.find((d) => d.filename.toLowerCase().includes(savedActive.toLowerCase()));
+        }
+      } catch (_) {}
+    }
+    if (!targetDoc) {
+      targetDoc = allDocs[0];
+    }
     const sessionKey = targetDoc
       ? `session_doc_${targetDoc.filename}`
-      : `session_topic_${(customTopic || 'Operating_Systems').replace(/\W+/g, '_')}`;
+      : `session_topic_${(customTopic || 'Course_Curriculum').replace(/\W+/g, '_')}`;
     const session = this.buildThreePhaseCurriculum(targetDoc, customTopic, sessionKey);
     this.saveSession(session);
     return session;
@@ -170,25 +182,26 @@ export class AdaptivePhaseEngine {
 
     const isDeadlockCourse =
       !isDesignThinking &&
-      (!customTopic || /deadlock|coffman|banker/i.test(customTopic)) &&
-      (!doc ||
-        doc.filename.toLowerCase().includes('deadlock') ||
-        doc.filename.toLowerCase().includes('lecture7') ||
-        /deadlock/i.test(doc.topic || ''));
+      ((Boolean(customTopic) && /deadlock|coffman|banker/i.test(customTopic)) ||
+        (doc && (
+          doc.filename.toLowerCase().includes('deadlock') ||
+          doc.filename.toLowerCase().includes('lecture7') ||
+          /deadlock/i.test(doc.topic || '')
+        )));
 
     const cleanFileTitle = ContentSanitizer.cleanDocumentTitle(
-      doc?.filename || 'Operating_Systems_Ch7_Deadlocks.pdf'
+      doc?.filename || 'Course_Material.pdf'
     );
 
     const subjectTitle = isDesignThinking
       ? `Design Thinking & Human-Centered Innovation (${cleanFileTitle})`
       : customTopic
       ? customTopic.replace(/^(teach me|learn|explain)\s+/i, '').trim()
-      : doc?.topic && doc.topic !== 'Deadlocks'
+      : doc?.topic
       ? `${ContentSanitizer.cleanText(doc.topic)} (${cleanFileTitle})`
-      : "Operating Systems: Deadlocks, Resource Graphs & Banker's Algorithm";
+      : cleanFileTitle;
 
-    const sourceFile = doc?.filename || 'Operating_Systems_Ch7_Deadlocks.pdf';
+    const sourceFile = doc?.filename || 'Course_Material.pdf';
     const units = doc?.units || [];
 
     const extractedConcepts =

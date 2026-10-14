@@ -169,6 +169,12 @@ export const api = {
     const safeCourseId = courseId || 'OS_101';
     // Always run client ingestion pipeline so local state & artifacts are enriched immediately
     const clientResult = await ClientIntelligenceEngine.ingestMaterial(safeCourseId, file, customPayload);
+    if (clientResult?.document?.filename) {
+      try {
+        localStorage.setItem('edupath_active_document', clientResult.document.filename);
+      } catch (_) {}
+    }
+
     // Immediately synthesize AI-decided 3-Phase Adaptive Curriculum + Grand Quiz for the ingested document
     let learningSession = null;
     try {
@@ -194,7 +200,7 @@ export const api = {
     if (!file) {
       return enrichedResult;
     }
-    return resilientFetch(`${API_BASE}/courses/upload`, {
+    return resilientFetch(`${API_BASE}/courses/${encodeURIComponent(safeCourseId)}/upload`, {
       method: 'POST',
       body: (() => {
         const formData = new FormData();

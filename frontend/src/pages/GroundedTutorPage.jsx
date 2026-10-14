@@ -88,10 +88,25 @@ Select any ingested document from the Scope dropdown and open *3-Phase & Grand Q
 **Example**
 Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, or *"Teach me Design Thinking"* below, or click any quick prompt to begin.`;
 
+  const allInitialDocs = ClientIntelligenceEngine.getAllDocuments();
+  const activeSavedDoc = (() => {
+    try {
+      return localStorage.getItem('edupath_active_document') || '';
+    } catch (_) {
+      return '';
+    }
+  })();
+  const primaryInitialDoc =
+    (activeSavedDoc && allInitialDocs.find((d) => d.filename.toLowerCase().includes(activeSavedDoc.toLowerCase()))) ||
+    allInitialDocs[0];
+  const activeDocTitle = ContentSanitizer.cleanDocumentTitle(primaryInitialDoc?.filename || 'Course Knowledge Base');
+  const activeDocTopic = ContentSanitizer.cleanText(primaryInitialDoc?.topic || 'Multimodal Study Platform');
+  const activeDocUnit = primaryInitialDoc?.units?.[0];
+
   const initialRagDiagrams = SmartExamEngine.buildUnifiedRagDiagrams({
     query: 'What is artificial intelligence?',
-    scopedDocument: 'Operating_Systems_Ch7_Deadlocks.pdf',
-    chunksScanned: 8,
+    scopedDocument: activeDocTitle,
+    chunksScanned: primaryInitialDoc?.units?.length || 8,
     bm25Score: 4.8,
     vectorScore: 0.98,
     sourceOrigin: 'Source-Grounded & General AI Synthesis'
@@ -104,28 +119,29 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
     brief_content: welcomeBrief,
     explanation_content: welcomeExplanation,
     intent: 'SYSTEM_READY',
-    source_origin: 'Source-Grounded & General AI Synthesis',
+    source_origin: `Source-Grounded & General AI Synthesis (${activeDocTitle})`,
     rag_diagrams: initialRagDiagrams,
-    citations: [
-      {
-        source_type: 'pdf',
-        document: 'Operating Systems Ch7 Deadlocks',
-        location_label: 'Page 42',
-        excerpt:
-          'Four Coffman conditions must hold simultaneously for a deadlock to arise: Mutual Exclusion, Hold and Wait, No Preemption, and Circular Wait.',
-        relevance: 0.99
-      }
-    ],
+    citations: activeDocUnit
+      ? [
+          {
+            source_type: primaryInitialDoc.file_type || 'pdf',
+            document: activeDocTitle,
+            location_label: ContentSanitizer.cleanText(activeDocUnit.location_label || 'Section 1'),
+            excerpt: ContentSanitizer.cleanText(activeDocUnit.content || '').slice(0, 190),
+            relevance: 0.99
+          }
+        ]
+      : [],
     status: 'SUPPORTED',
     follow_up_questions: [
+      `🎓 Teach me ${activeDocTitle} in 3 Adaptive Phases`,
+      `Summarize the key facts from ${activeDocTitle}`,
       'What is artificial intelligence?',
-      '🎓 Teach me this course material in 3 Adaptive Phases',
       'Explain binary search.',
-      'Write a C++ program for two sum.',
-      'What four Coffman conditions must hold for a deadlock?'
+      'Write a C++ program for two sum.'
     ],
     recommended_next_action: {
-      label: 'Open Smart Exam Mentor (MCQ / Fill-in-Blanks / True-False / Podcast)',
+      label: `Open Smart Exam Mentor for ${activeDocTopic}`,
       action_type: 'OPEN_SMART_MENTOR',
       reason: 'Practice with Bayesian Active Learning P(θ|D), AI Podcast TTS, ELI12, and Flagged Questions.'
     },
@@ -142,13 +158,13 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
       intent_detected: 'SYSTEM_READY',
       mode_selected: 'beginner',
       response_depth: 'explanation',
-      scope_applied: 'Entire Course Knowledge Base',
-      chunks_scanned: 8,
+      scope_applied: activeDocTitle,
+      chunks_scanned: primaryInitialDoc?.units?.length || 8,
       top_bm25_score: 4.8,
       top_vector_score: 0.98,
-      topic: 'Deadlocks & General AI',
-      concept: 'RAG Enhanced Chatbot & Bayesian Active Learning',
-      prerequisites: ['Resource Allocation', 'Processes & Threads'],
+      topic: activeDocTopic,
+      concept: primaryInitialDoc?.concepts?.[0] || 'Adaptive Learning',
+      prerequisites: primaryInitialDoc?.prerequisites || ['Foundational Principles'],
       learner_mastery: 0.68
     }
   };
@@ -175,7 +191,13 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
 
   const [input, setInput] = useState('');
   const [selectedMode, setSelectedMode] = useState('beginner');
-  const [scopedDocument, setScopedDocument] = useState('');
+  const [scopedDocument, setScopedDocument] = useState(() => {
+    try {
+      return localStorage.getItem('edupath_active_document') || '';
+    } catch (_) {
+      return '';
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const messagesEndRef = useRef(null);
@@ -192,12 +214,12 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
 
   const QUICK_PROMPTS = [
     '🎓 Teach me this material in 3 Adaptive Phases',
+    'Summarize the key facts from my uploaded document',
     'What is artificial intelligence?',
     'Explain binary search.',
     'Write a C++ program for two sum.',
     'What is the difference between ML and DL?',
-    'What four Coffman conditions must hold for a deadlock?',
-    "How does Dijkstra's Banker's Algorithm check for a safe sequence?",
+    'What are the core concepts and formulas in my notes?',
     'Explain Design Thinking 5 stages with examples'
   ];
 
@@ -208,6 +230,15 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
       const data = await api.getSourceExplorer(courseId);
       if (data && Array.isArray(data.documents)) {
         setAvailableDocs(data.documents);
+        const savedActive = localStorage.getItem('edupath_active_document');
+        if (savedActive && data.documents.some((d) => d.filename === savedActive)) {
+          setScopedDocument(savedActive);
+        } else if (!scopedDocument && data.documents.length > 0) {
+          const firstPersisted = data.documents.find((d) => d.id?.startsWith('doc_user_'));
+          if (firstPersisted) {
+            setScopedDocument(firstPersisted.filename);
+          }
+        }
       }
     };
     fetchDocs();

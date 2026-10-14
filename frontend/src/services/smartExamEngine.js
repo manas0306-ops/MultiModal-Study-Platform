@@ -261,7 +261,82 @@ export class SmartExamEngine {
     if (lower.includes('inventory') || lower.includes('stocksense') || lower.includes('ledger')) {
       return this.buildInventoryFsmBundle(doc);
     }
-    return this.buildDeadlockDefaultBundle(doc, topicName);
+    if (lower.includes('deadlock') || lower.includes('coffman') || lower.includes('banker')) {
+      return this.buildDeadlockDefaultBundle(doc, topicName);
+    }
+    return this.buildDynamicExamBundle(doc, topicName);
+  }
+
+  static buildDynamicExamBundle(doc, topicName) {
+    const cleanDoc = ContentSanitizer.cleanDocumentTitle(doc?.filename || 'Course Study Material');
+    const topic = topicName || doc?.topic || cleanDoc;
+    const units = doc?.units || [];
+    const concepts = doc?.concepts || [topic];
+    const u1 = units[0]?.content || `${topic} establishes the foundational principles and core models.`;
+    const u2 = units[1]?.content || `${topic} connects concepts into systematic workflows and practical applications.`;
+
+    return {
+      topic,
+      sourceDocument: cleanDoc,
+      modalities: [
+        { type: doc?.file_type?.toUpperCase() || 'DOCUMENT', label: `${cleanDoc} (${units.length} Knowledge Units)`, status: 'Indexed & Analyzed' },
+        { type: 'Concept Graph', label: `${concepts.length} Extracted Core Concepts`, status: 'Mapped' },
+        { type: 'Audio / TTS', label: 'Adaptive Study Podcast & ELI12 Narrative', status: 'Synthesized' }
+      ],
+      eli12Explanation: {
+        title: `🧒 ELI12 (Explain Like I'm 12): Understanding ${topic}`,
+        analogy: `Imagine building a puzzle or organizing a team project: every rule in ${topic} ensures everyone knows their role and nothing gets lost or confused along the way.`,
+        storySteps: [
+          `1. **Core Problem**: Why do we need ${topic}? ${ContentSanitizer.cleanText(u1).slice(0, 160)}.`,
+          `2. **Key Mechanism**: How does it work? ${ContentSanitizer.cleanText(u2).slice(0, 160)}.`,
+          `3. **Key Concepts**: Focus on ${concepts.slice(0, 3).join(', ')}.`,
+          `💡 **Takeaway**: When you follow these structured rules, the system stays predictable, fast, and completely safe!`
+        ]
+      },
+      podcast: {
+        title: `🎙️ Deep-Dive Study Podcast: Mastering ${topic}`,
+        duration: '3 min listen',
+        hosts: ['Alex (Host)', 'Dr. Maya (Learning AI)'],
+        dialogue: [
+          {
+            speaker: 'Alex',
+            text: `Welcome back to EduPath AI Study FM! Today we're diving into "${cleanDoc}" to master ${topic}. Dr. Maya, what is the core intuition here?`
+          },
+          {
+            speaker: 'Dr. Maya',
+            text: `Great question, Alex! The foundational takeaway is: ${ContentSanitizer.cleanText(u1).slice(0, 200)}.`
+          },
+          {
+            speaker: 'Alex',
+            text: `And how do students avoid common pitfalls when analyzing ${concepts[0] || topic}?`
+          },
+          {
+            speaker: 'Dr. Maya',
+            text: 'Students often try to memorize definitions without checking prerequisites. Remember: always verify preconditions and follow the structured workflow!'
+          }
+        ]
+      },
+      diagnosticQuestions: (units.length >= 2 ? units.slice(0, 3) : []).map((u, idx) => ({
+        id: `diag_dyn_${idx + 1}`,
+        type: idx % 2 === 0 ? 'mcq' : 'true_false',
+        concept: u.concept || topic,
+        difficulty: idx === 0 ? 'Easy' : 'Medium',
+        question: `According to ${cleanDoc}, which statement accurately describes ${u.concept || topic}?`,
+        options: idx % 2 === 0 ? [
+          { id: 'A', text: ContentSanitizer.cleanText(u.content).split('.')[0] + '.' },
+          { id: 'B', text: `${u.concept || topic} completely ignores all system invariants and constraints.` },
+          { id: 'C', text: `${u.concept || topic} applies only when no input validation is performed.` },
+          { id: 'D', text: `${u.concept || topic} produces non-deterministic random outputs.` }
+        ] : [
+          { id: 'A', text: 'True' },
+          { id: 'B', text: 'False' }
+        ],
+        correctAnswer: 'A',
+        explanation: `${ContentSanitizer.cleanText(u.content).split('.').slice(0, 2).join('.')}.`,
+        misconception: `Misunderstanding the core invariants and definitions of ${u.concept || topic}.`,
+        sourceReference: `${cleanDoc} — ${u.location_label || 'Section ' + (idx + 1)}`
+      }))
+    };
   }
 
   static buildDeadlockDefaultBundle(doc, topicName) {
