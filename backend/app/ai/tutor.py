@@ -4,7 +4,7 @@ from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from backend.app.models.entities import Course, Concept, Topic, Conversation, ConversationMessage, Citation
+from backend.app.models.entities import Course, Document, Concept, Topic, Conversation, ConversationMessage, Citation
 from backend.app.retrieval.hybrid_retriever import HybridRetriever
 from backend.app.ai.grounding_gate import GroundingGate
 from backend.app.ai.provider import ai_provider
@@ -143,7 +143,9 @@ class GroundedTutorService:
     async def ask(
         cls,
         db: AsyncSession,
-        course_id: Optional[str] = "OS_101",
+        course_id: Optional[str] = None,
+        document_id: Optional[str] = None,
+        scope_location: Optional[Dict[str, Any]] = None,
         query: str = "",
         mode: str = "beginner",
         language: str = "en",
@@ -157,13 +159,19 @@ class GroundedTutorService:
     ) -> Dict[str, Any]:
         """
         Executes unified grounded + general-purpose tutoring pipeline:
-        1. Course RAG Retrieval (when course_id is provided)
+        1. Dynamic Course & Document RAG Retrieval (when course_id or document_id is provided)
         2. Live Web Search (when freshness, external facts, or user requests it)
         3. Grounding Gate & Citation Synthesis
         4. Dynamic "Explore Further" Suggestions
         5. Zero token, credit, or message limits.
         """
-        # 1. Retrieve course evidence if course_id is specified
+        # Resolve document_id to course_id if course_id not explicitly given
+        if document_id and not course_id:
+            doc_obj = await db.get(Document, document_id)
+            if doc_obj:
+                course_id = doc_obj.course_id
+
+        # 1. Retrieve course/document evidence if course_id is specified
         retrieval = {"results": []}
         gate = {"status": "OPEN", "validated_citations": [], "confidence": 0.0}
 
@@ -172,7 +180,9 @@ class GroundedTutorService:
                 db=db,
                 course_id=course_id,
                 query=query,
-                top_k=4
+                top_k=4,
+                scope_document_id=document_id,
+                scope_location=scope_location
             )
             gate = GroundingGate.evaluate(retrieval, scope=scope)
 

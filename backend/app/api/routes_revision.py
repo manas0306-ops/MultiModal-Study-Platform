@@ -9,7 +9,7 @@ from backend.app.security.auth import AuthService
 router = APIRouter(prefix="/revision", tags=["Revision Generator"])
 
 @router.get("/quick")
-async def get_quick_revision(course_id: str, topic_name: Optional[str] = "Deadlocks", db: AsyncSession = Depends(get_db)):
+async def get_quick_revision(course_id: str, topic_name: Optional[str] = None, db: AsyncSession = Depends(get_db)):
     return await RevisionGeneratorService.generate_quick_revision(db, course_id, topic_name)
 
 @router.get("/cheat-sheet")

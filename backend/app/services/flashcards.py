@@ -4,7 +4,7 @@ from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from backend.app.models.entities import Course, Concept, Flashcard, FlashcardReview
+from backend.app.models.entities import Course, Concept, KnowledgeUnit, Flashcard, FlashcardReview
 from backend.app.learner.mastery_service import LearnerMasteryService
 
 logger = logging.getLogger("edupath.services.flashcards")
@@ -100,7 +100,7 @@ class FlashcardService:
         course_id: str,
         limit: int = 15
     ) -> List[Dict[str, Any]]:
-        """Fetches flashcards due for review according to SM-2 schedule."""
+        """Fetches flashcards due for review according to SM-2 schedule, generating from KnowledgeUnits if none exist."""
         now = datetime.now(timezone.utc)
         res = await db.execute(
             select(Flashcard).filter(
@@ -120,6 +120,32 @@ class FlashcardService:
                 ).limit(limit)
             )
             due_cards = res_all.scalars().all()
+
+        # If still none exist, synthesize directly from course KnowledgeUnits
+        if not due_cards:
+            ku_res = await db.execute(
+                select(KnowledgeUnit).filter(KnowledgeUnit.course_id == course_id).limit(limit)
+            )
+            units = ku_res.scalars().all()
+            for ku in units:
+                first_sentence = ku.content.strip().split(".")[0]
+                card = Flashcard(
+                    user_id=user_id,
+                    course_id=course_id,
+                    topic_name=ku.topic_name,
+                    concept_name=ku.concept_name,
+                    front=f"Explain the primary mechanism and significance of {ku.concept_name}.",
+                    back=f"{first_sentence}.",
+                    ease_factor=2.5,
+                    interval_days=1,
+                    repetition=0,
+                    next_review_at=now,
+                    source_reference=ku.source_location
+                )
+                db.add(card)
+                due_cards.append(card)
+            if units:
+                await db.commit()
 
         return [
             {

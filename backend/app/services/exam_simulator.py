@@ -43,10 +43,13 @@ class ExamSimulatorService:
                 "difficulty": q["difficulty"]
             })
 
+        course = await db.get(Course, course_id)
+        exam_title = f"{course.title} — Comprehensive Examination" if course else "Comprehensive Examination Simulation"
+
         return {
             "exam_id": f"exam_{course_id[:8]}",
             "course_id": course_id,
-            "title": "Comprehensive Midterm Simulation",
+            "title": exam_title,
             "duration_minutes": duration_minutes,
             "total_questions": len(clean_questions),
             "questions": clean_questions

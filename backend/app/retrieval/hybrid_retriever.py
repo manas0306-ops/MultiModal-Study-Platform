@@ -20,22 +20,24 @@ class HybridRetriever:
     async def retrieve(
         cls,
         db: AsyncSession,
-        course_id: str,
-        query: str,
+        course_id: Optional[str] = None,
+        query: str = "",
         top_k: int = 5,
         scope_document_id: Optional[str] = None,
         scope_location: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         Executes hybrid retrieval:
-        1. Fetch all candidate KnowledgeUnits for course
+        1. Fetch all candidate KnowledgeUnits for course or document
         2. Vector search via embeddings
         3. Lexical search via BM25
         4. Reciprocal Rank Fusion (RRF)
         5. Grounding evidence confidence calculation
         """
         # Fetch knowledge units from DB
-        stmt = select(KnowledgeUnit).filter(KnowledgeUnit.course_id == course_id)
+        stmt = select(KnowledgeUnit)
+        if course_id:
+            stmt = stmt.filter(KnowledgeUnit.course_id == course_id)
         if scope_document_id:
             stmt = stmt.filter(KnowledgeUnit.document_id == scope_document_id)
             

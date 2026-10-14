@@ -11,7 +11,9 @@ router = APIRouter(prefix="/tutor", tags=["Grounded AI Tutor"])
 
 
 class TutorAskRequest(BaseModel):
-    course_id: Optional[str] = "OS_101"
+    course_id: Optional[str] = None
+    document_id: Optional[str] = None
+    scope_location: Optional[Dict[str, Any]] = None
     message: str
     mode: Optional[str] = "beginner"  # beginner, exam, deep_dive, interview, socratic, bilingual
     language: Optional[str] = "en"
@@ -35,7 +37,7 @@ async def ask_tutor(req: TutorAskRequest, request: Request, db: AsyncSession = D
     """
     Submits a query to the AI Tutor with zero application-level token or message limits.
     Supports general-purpose LLM reasoning, live web search, course-grounded RAG,
-    dynamic 'Explore Further' follow-ups, and verified clickable citations.
+    document-scoped precision, dynamic 'Explore Further' follow-ups, and verified clickable citations.
     """
     # 1. Resolve active user (authenticated user via cookie/token or demo user fallback)
     user = None
@@ -50,6 +52,8 @@ async def ask_tutor(req: TutorAskRequest, request: Request, db: AsyncSession = D
     result = await GroundedTutorService.ask(
         db=db,
         course_id=req.course_id,
+        document_id=req.document_id,
+        scope_location=req.scope_location,
         query=req.message,
         mode=req.mode or "beginner",
         language=req.language or "en",
