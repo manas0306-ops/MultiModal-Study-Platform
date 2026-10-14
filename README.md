@@ -1,5 +1,11 @@
 # EduPath AI — Multimodal Adaptive Learning Companion
 
+<div align="center">
+  <img src="docs/assets/edupath_ai_banner.jpg" alt="EduPath AI — Multimodal Adaptive Learning & Tutoring Platform" width="100%" style="border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+</div>
+
+<br/>
+
 [![Live Deployment](https://img.shields.io/badge/Live_Deployment-GitHub_Pages-6366f1.svg?style=for-the-badge&logo=github)](https://manas0306-ops.github.io/MultiModal-Study-Platform/)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![Backend](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?logo=fastapi)]()
