@@ -175,6 +175,26 @@ async def test_math_arithmetic_2_plus_2_correctness():
         )
         assert "4" in res2["answer"]
 
+        # Also test word-based phrasing
+        res_words = await GroundedTutorService.ask(
+            db=db,
+            course_id=None,
+            query="two plus two",
+            mode="beginner",
+            scope="open"
+        )
+        assert "4" in res_words["answer"]
+        assert "inputs, preconditions, and governing rules" not in res_words["answer"].lower()
+
+        res_words2 = await GroundedTutorService.ask(
+            db=db,
+            course_id=None,
+            query="what is two plus two?",
+            mode="beginner",
+            scope="open"
+        )
+        assert "4" in res_words2["answer"]
+
         # Also test multiplication
         res3 = await GroundedTutorService.ask(
             db=db,

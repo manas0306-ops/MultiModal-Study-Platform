@@ -24,7 +24,8 @@ import {
   MessageSquare,
   Globe,
   Headphones,
-  ExternalLink
+  ExternalLink,
+  X
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -35,6 +36,8 @@ import { EducationalContentRenderer } from '../components/common/EducationalCont
 import { AIOrchestrator, INTENT_CLASSES } from '../services/aiOrchestrator';
 import { SmartExamEngine } from '../services/smartExamEngine';
 import { AdaptivePhaseEngine } from '../services/adaptivePhaseEngine';
+import { ClientIntelligenceEngine } from '../services/clientEngine';
+import { ContentSanitizer } from '../services/contentSanitizer';
 
 const STORAGE_KEY_CHAT_HISTORY = 'edupath_unlimited_chat_history_v1';
 
@@ -444,178 +447,161 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
   const masteryPercent = Math.round((user?.profile?.overall_mastery || 0.68) * 100);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-5xl mx-auto p-3 sm:p-5 space-y-3">
-      {/* Top Controls: 3-Way Studio Switcher, Brief/Explanation Toggle, Dynamic Scope & Learning Information */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 shadow-lg space-y-3 shrink-0">
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
-          {/* Left: 3-Way Primary View Switcher (Chat | 3-Phase Studio | Smart Exam Mentor & Podcast) */}
+    <div className="flex flex-col h-[calc(100vh-4.25rem)] max-w-4xl mx-auto w-full px-2 sm:px-4 py-2 space-y-2.5 overflow-hidden font-sans">
+      {/* Sleek, Uncluttered Navigation & Scope Header */}
+      <div className="bg-slate-900/95 border border-slate-800 rounded-2xl p-2.5 sm:px-3.5 sm:py-2.5 shadow-md shrink-0 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {/* Left: View Mode Pills + Dynamic Scope Dropdown */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex flex-wrap rounded-xl bg-slate-950 p-1 border border-slate-800 gap-1">
+            <div className="inline-flex rounded-xl bg-slate-950 p-1 border border-slate-800 gap-1">
               <button
                 onClick={() => setActiveStudioView('chat')}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                   activeStudioView === 'chat'
                     ? 'bg-indigo-600 text-white shadow'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                <span>AI Learning Space</span>
+                <span>AI Tutor</span>
               </button>
               <button
                 onClick={() => setActiveStudioView('phases')}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
                   activeStudioView === 'phases'
                     ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-slate-950 shadow'
                     : 'text-amber-300 hover:text-amber-200'
                 }`}
+                title="Open 3-Phase Adaptive Learning Studio & Grand Quiz"
               >
                 <GraduationCap className="w-3.5 h-3.5" />
-                <span>🎓 3-Phase & Grand Quiz</span>
+                <span>3-Phase</span>
               </button>
               <button
                 onClick={() => setActiveStudioView('mentor')}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
                   activeStudioView === 'mentor'
                     ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 shadow'
                     : 'text-emerald-300 hover:text-emerald-200'
                 }`}
+                title="Open Smart Exam Mentor & Podcast Audio"
               >
                 <Headphones className="w-3.5 h-3.5" />
-                <span>🧠 Smart Exam Mentor & Podcast</span>
+                <span>Mentor</span>
               </button>
             </div>
 
-            {/* Global Dual Response Mode Toggle: ⚡ Brief | 📖 Explanation */}
-            <div
-              className="inline-flex rounded-xl bg-slate-950 p-1 border border-slate-800"
-              title="Switch all AI responses between concise Brief mode and comprehensive Deep Explanation mode"
-            >
+            {/* Scope Dropdown */}
+            <div className="flex items-center gap-1.5 text-xs">
+              <select
+                value={scopedDocument}
+                onChange={(e) => setScopedDocument(e.target.value)}
+                className="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-200 outline-none focus:ring-1 focus:ring-indigo-500 text-xs max-w-[210px] truncate"
+                title="Select source material to ground answers, or choose Open Knowledge to ask general questions"
+              >
+                <option value="">🌐 Open Knowledge + Web</option>
+                {availableDocs.map((doc) => (
+                  <option key={doc.id} value={doc.filename}>
+                    📄 {doc.filename}
+                  </option>
+                ))}
+              </select>
+
+              {onOpenUpload && (
+                <button
+                  onClick={onOpenUpload}
+                  className="p-1.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                  title="Upload new PDF, PPTX, or notes"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">+ Ingest</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Right: Pedagogical Mode Selector + Brief/Detailed Toggle + Reset */}
+          <div className="flex items-center gap-2">
+            {activeStudioView === 'chat' && (
+              <select
+                value={selectedMode}
+                onChange={(e) => handleModeSelect(e.target.value)}
+                className="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1 text-slate-300 text-xs outline-none focus:ring-1 focus:ring-indigo-500"
+                title="Select teaching style"
+              >
+                {TUTOR_MODES.map((mode) => (
+                  <option key={mode.id} value={mode.id}>
+                    {mode.label}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <div className="inline-flex rounded-xl bg-slate-950 p-0.5 border border-slate-800">
               <button
                 onClick={() => {
                   setResponseDepth('brief');
                   setMessageDepthOverrides({});
                 }}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all ${
+                className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
                   responseDepth === 'brief'
                     ? 'bg-amber-500 text-slate-950 shadow'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
+                title="Concise high-yield answers"
               >
                 <Zap className="w-3 h-3" />
-                <span>⚡ Brief</span>
+                <span>Brief</span>
               </button>
               <button
                 onClick={() => {
                   setResponseDepth('explanation');
                   setMessageDepthOverrides({});
                 }}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all ${
+                className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
                   responseDepth === 'explanation'
                     ? 'bg-indigo-600 text-white shadow'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
+                title="Deep step-by-step conceptual explanations"
               >
                 <BookOpen className="w-3 h-3" />
-                <span>📖 Explanation</span>
+                <span>Deep</span>
               </button>
             </div>
-          </div>
 
-          {/* Right: Dynamic Knowledge Scope Selector + Quick Ingest Button */}
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-slate-400 font-medium hidden sm:inline">Scope:</span>
-            <select
-              value={scopedDocument}
-              onChange={(e) => setScopedDocument(e.target.value)}
-              className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 outline-none focus:ring-1 focus:ring-indigo-500 text-xs max-w-[220px]"
-            >
-              <option value="">
-                All Sources + General AI ({availableDocs.length} files)
-              </option>
-              {availableDocs.map((doc) => (
-                <option key={doc.id} value={doc.filename}>
-                  [{doc.file_type?.toUpperCase()}] {doc.filename}
-                </option>
-              ))}
-            </select>
-
-            {onOpenUpload && (
+            {messages.length > 1 && activeStudioView === 'chat' && (
               <button
-                onClick={onOpenUpload}
-                className="px-2.5 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                title="Ingest new PDF, PPTX, Video, Audio, or Study Notes"
+                onClick={handleResetConversation}
+                className="p-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                title="Start a fresh conversation thread"
               >
-                <Upload className="w-3.5 h-3.5" />
-                <span>+ Ingest Material</span>
+                <RotateCcw className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
         </div>
 
-        {/* Informational Learning Metrics Bar (Section 7 — Replaces any usage/token counters with pure learning state) */}
-        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-slate-950/70 border border-slate-800/80 text-[11px]">
-          <div className="flex flex-wrap items-center gap-3 text-slate-300">
-            <span className="font-semibold text-emerald-400 flex items-center gap-1">
-              <Sparkles className="w-3 h-3" /> Ask anything • Unlimited Learning
+        {/* Clear Relationship Indicator: When a document scope is active */}
+        {scopedDocument && activeStudioView === 'chat' && (
+          <div className="flex items-center justify-between px-2.5 py-1 rounded-xl bg-indigo-500/10 border border-indigo-500/25 text-xs text-indigo-300">
+            <span className="flex items-center gap-1.5 truncate">
+              <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-indigo-400" />
+              <span>Grounded in document: <strong>{scopedDocument}</strong></span>
             </span>
-            <span className="text-slate-600 hidden sm:inline">|</span>
-            <span>
-              Learning Progress: <strong className="text-indigo-300">{masteryPercent}%</strong>
-            </span>
-            <span className="text-slate-600 hidden sm:inline">|</span>
-            <span>
-              Current Phase: <strong className="text-amber-300">{currentPhaseLabel}</strong>
-            </span>
-            <span className="text-slate-600 hidden md:inline">|</span>
-            <span className="hidden md:inline">
-              Questions Asked: <strong className="text-sky-300">{questionsAskedCount}</strong>
-            </span>
-            <span className="text-slate-600 hidden lg:inline">|</span>
-            <span className="hidden lg:inline">
-              Material Covered: <strong className="text-emerald-300">{availableDocs.length} Sources</strong>
-            </span>
-          </div>
-
-          {messages.length > 1 && activeStudioView === 'chat' && (
             <button
-              onClick={handleResetConversation}
-              className="text-[10px] text-slate-400 hover:text-slate-200 flex items-center gap-1"
-              title="Start a fresh conversation thread"
+              onClick={() => setScopedDocument('')}
+              className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 ml-2 shrink-0 cursor-pointer"
+              title="Clear document scope to ask general questions"
             >
-              <RotateCcw className="w-3 h-3" /> New Thread
+              <X className="w-3 h-3" />
+              <span>Open Knowledge Mode</span>
             </button>
-          )}
-        </div>
-
-        {/* 7 Pedagogical Modes Bar (shown when in AI Chat mode) */}
-        {activeStudioView === 'chat' && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-            {TUTOR_MODES.map((mode) => {
-              const isActive = selectedMode === mode.id;
-              return (
-                <button
-                  key={mode.id}
-                  onClick={() => handleModeSelect(mode.id)}
-                  className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
-                    isActive
-                      ? 'bg-indigo-50 dark:bg-indigo-600/20 border-indigo-600 dark:border-indigo-500 text-indigo-950 dark:text-white shadow-sm font-bold ring-1 ring-indigo-500/30'
-                      : 'bg-slate-50 dark:bg-slate-950/40 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:border-indigo-400'
-                  }`}
-                >
-                  <div className="text-xs font-semibold flex items-center justify-between">
-                    <span>{mode.label}</span>
-                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />}
-                  </div>
-                  <div className="text-[10px] text-slate-400 truncate mt-0.5">{mode.desc}</div>
-                </button>
-              );
-            })}
           </div>
         )}
       </div>
 
-      {/* Main Content Area: 3-Phase Adaptive Studio | Smart Exam Mentor Studio | Conversational AI Chat */}
+      {/* Main Workspace Area: 3-Phase Studio | Smart Exam Mentor Studio | Conversational AI Chat */}
       {activeStudioView === 'phases' ? (
         <div className="flex-1 overflow-y-auto pr-1">
           <AdaptivePhaseStudio
@@ -642,12 +628,11 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
         </div>
       ) : (
         <>
-          {/* Message Chat Feed */}
-          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+          {/* Centered, Spacious Chat Feed */}
+          <div className="flex-1 overflow-y-auto space-y-3.5 pr-1.5 scroll-smooth">
             {messages.map((msg) => {
               const isUser = msg.role === 'user';
               const trace = msg.pipeline_trace;
-              const ragDiagrams = msg.rag_diagrams;
               const isTraceOpen = !!expandedTraces[msg.id];
               const msgDepth = messageDepthOverrides[msg.id] || responseDepth;
               const displayedContent = isUser
@@ -659,78 +644,48 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
               return (
                 <div
                   key={msg.id}
-                  className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
+                  className={`flex gap-2.5 sm:gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
                 >
                   {!isUser && (
-                    <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0 shadow-md mt-1">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0 shadow mt-1">
                       <Bot className="w-4 h-4 text-white" />
                     </div>
                   )}
 
                   <div
-                    className={`max-w-3xl rounded-2xl p-4 text-xs leading-relaxed ${
+                    className={`rounded-2xl p-3.5 sm:p-4 text-xs sm:text-sm leading-relaxed ${
                       isUser
-                        ? 'bg-indigo-600 text-white shadow-md'
-                        : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-200 shadow-sm w-full'
+                        ? 'bg-indigo-600 text-white shadow max-w-[85%] rounded-br-sm'
+                        : 'bg-slate-900 border border-slate-800 text-slate-200 shadow-sm w-full'
                     }`}
                   >
-                    {/* Assistant Grounding, Intent, Per-Message Brief/Explanation Switcher & Controls */}
-                    {!isUser && msg.status && (
-                      <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-slate-200 dark:border-slate-800">
+                    {/* Assistant Source Origin & Grounding Header */}
+                    {!isUser && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-800">
                         <div className="flex flex-wrap items-center gap-1.5">
                           {(msg.status === 'DIRECT_CALCULATION' || msg.intent === 'DIRECT_CALCULATION') && (
-                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
-                              <Zap className="w-3 h-3 text-emerald-400" /> Direct Calculation
+                            <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                              <Zap className="w-3.5 h-3.5 text-emerald-400" /> Direct Calculation
                             </span>
                           )}
                           {(msg.is_web_grounded || (msg.web_sources && msg.web_sources.length > 0)) && (
-                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
-                              <Globe className="w-3 h-3 text-emerald-400" /> Live Web Evidence
+                            <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                              <Globe className="w-3.5 h-3.5 text-emerald-400" /> Live Web Research ({msg.web_sources?.length || 1} sources)
                             </span>
                           )}
                           {msg.status === 'SUPPORTED' && !msg.is_web_grounded && (
-                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                              <ShieldCheck className="w-3 h-3" /> Grounded in Course Material
+                            <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                              <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" /> Grounded in Course Material
                             </span>
                           )}
-                          {msg.status === 'GENERAL_AI' && !msg.is_web_grounded && (
-                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/10 text-sky-300 border border-sky-500/25">
-                              <Globe className="w-3 h-3" />{' '}
-                              {msg.source_origin || 'General Knowledge & AI Reasoning'}
+                          {msg.status === 'GENERAL_AI' && !msg.is_web_grounded && msg.status !== 'DIRECT_CALCULATION' && msg.intent !== 'DIRECT_CALCULATION' && (
+                            <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-500/10 text-sky-300 border border-sky-500/25">
+                              <Sparkles className="w-3.5 h-3.5 text-sky-400" /> {msg.source_origin || 'General AI Reasoning'}
                             </span>
-                          )}
-                          {msg.status === 'PARTIALLY_SUPPORTED' && (
-                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                              <AlertCircle className="w-3 h-3" />{' '}
-                              {msg.source_origin || 'General Knowledge & AI Reasoning'}
-                            </span>
-                          )}
-                          {msg.status === 'UNSUPPORTED' && (
-                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
-                              <AlertCircle className="w-3 h-3" /> Grounding Gate Notice
-                            </span>
-                          )}
-
-                          {trace && (
-                            <button
-                              onClick={() => toggleTrace(msg.id)}
-                              className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/25 transition-colors"
-                              title="Inspect Reasoning & Execution Trace"
-                            >
-                              <Cpu className="w-3 h-3" />
-                              <span>
-                                Pipeline & Context Trace
-                              </span>
-                              {isTraceOpen ? (
-                                <ChevronUp className="w-3 h-3" />
-                              ) : (
-                                <ChevronDown className="w-3 h-3" />
-                              )}
-                            </button>
                           )}
                         </div>
 
-                        {/* Right Controls: Per-Message Brief/Explanation Toggle + Copy + Regenerate + Read Aloud */}
+                        {/* Right Utility Buttons: Brief/Deep, Copy, Read Aloud, Regenerate */}
                         <div className="flex items-center gap-1">
                           {msg.brief_content && msg.explanation_content && (
                             <div className="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800 mr-1">
@@ -741,7 +696,7 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
                                     [msg.id]: 'brief'
                                   }))
                                 }
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
                                   msgDepth === 'brief'
                                     ? 'bg-amber-500 text-slate-950'
                                     : 'text-slate-400 hover:text-white'
@@ -756,7 +711,7 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
                                     [msg.id]: 'explanation'
                                   }))
                                 }
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
                                   msgDepth === 'explanation'
                                     ? 'bg-indigo-600 text-white'
                                     : 'text-slate-400 hover:text-white'
@@ -769,7 +724,7 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
 
                           <button
                             onClick={() => handleCopyMessage(msg.id, displayedContent)}
-                            className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors"
+                            className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors cursor-pointer"
                             title="Copy response"
                           >
                             {copiedId === msg.id ? (
@@ -784,7 +739,7 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
                               onClick={() =>
                                 handleSend(msg.query_asked, scopedDocument, selectedMode, msgDepth)
                               }
-                              className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-indigo-400 transition-colors"
+                              className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-indigo-400 transition-colors cursor-pointer"
                               title="Regenerate response"
                             >
                               <RotateCcw className="w-3.5 h-3.5" />
@@ -793,7 +748,7 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
 
                           <button
                             onClick={() => toggleSpeech(displayedContent)}
-                            className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-indigo-400 transition-colors"
+                            className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-indigo-400 transition-colors cursor-pointer"
                             title={isSpeaking ? 'Stop read-aloud' : 'Read aloud'}
                           >
                             {isSpeaking ? (
@@ -806,91 +761,20 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
                       </div>
                     )}
 
-                    {/* Collapsible 5-Stage RAG Pipeline & Learning Mastery Trace */}
-                    {!isUser && trace && isTraceOpen && (
-                      <div className="mb-3 p-3 rounded-xl bg-slate-950/90 border border-indigo-500/30 text-[11px] space-y-3 font-mono">
-                        <div className="flex flex-wrap items-center justify-between gap-2 text-indigo-300 font-bold">
-                          <span className="flex items-center gap-1.5">
-                            <Layers className="w-3.5 h-3.5" />
-                            AI Orchestrator & RAG Pipeline Trace
-                          </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20">
-                            Intent: {trace.intent_detected || msg.intent || 'QUESTION'} • Mode:{' '}
-                            {(trace.mode_selected || selectedMode).toUpperCase()}
-                          </span>
-                        </div>
-
-                        {/* 5-Stage RAG Chatbot Architecture Pipeline */}
-                        {ragDiagrams?.fiveStagePipeline && (
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-bold text-sky-300 block">
-                              5-Stage RAG & Synthesis Architecture:
-                            </span>
-                            <div className="grid grid-cols-1 sm:grid-cols-5 gap-1.5 text-[10px]">
-                              {ragDiagrams.fiveStagePipeline.map((st) => (
-                                <div
-                                  key={st.stage}
-                                  className="p-2 rounded bg-slate-900 border border-slate-800"
-                                >
-                                  <span className="text-sky-400 font-bold block">
-                                    {st.stage}. {st.title}
-                                  </span>
-                                  <span className="text-slate-400 block text-[9px] leading-tight mt-0.5">
-                                    {st.subtitle}
-                                  </span>
-                                  <span className="text-emerald-300 block truncate mt-1 font-semibold">
-                                    {st.metric}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Core RAG + Graph + Bayesian Learner Metrics */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] pt-1 border-t border-slate-800/80">
-                          <div className="p-2 rounded bg-slate-900 border border-slate-800">
-                            <span className="text-slate-400 block">Vector Store + BM25</span>
-                            <span className="text-emerald-400 font-bold">
-                              BM25: {trace.top_bm25_score ?? 3.8} | Vec: {trace.top_vector_score ?? 0.95}
-                            </span>
-                          </div>
-                          <div className="p-2 rounded bg-slate-900 border border-slate-800">
-                            <span className="text-slate-400 block">Knowledge Graph</span>
-                            <span className="text-sky-400 font-bold truncate block">
-                              {trace.concept || 'Course Concept'}
-                            </span>
-                          </div>
-                          <div className="p-2 rounded bg-slate-900 border border-slate-800">
-                            <span className="text-slate-400 block">Response Synthesis</span>
-                            <span className="text-amber-400 font-bold truncate block">
-                              Grounded + General AI
-                            </span>
-                          </div>
-                          <div className="p-2 rounded bg-slate-900 border border-slate-800">
-                            <span className="text-slate-400 block">Bayesian Mastery θ'</span>
-                            <span className="text-indigo-400 font-bold">
-                              Mastery: {Math.round((trace.learner_mastery || 0.68) * 100)}% (+10 XP)
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Message Body */}
+                    {/* Rendered Content */}
                     {isUser ? (
-                      <div className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
+                      <div className="whitespace-pre-wrap font-sans text-xs sm:text-sm leading-relaxed">
                         {displayedContent}
                       </div>
                     ) : (
                       <EducationalContentRenderer content={displayedContent} />
                     )}
 
-                    {/* Citations List */}
+                    {/* Course Document Citations */}
                     {!isUser && msg.citations && msg.citations.length > 0 && (
-                      <div className="mt-3 pt-2.5 border-t border-slate-800">
-                        <span className="text-[10px] font-semibold text-slate-400 block mb-1">
-                          Verified Course-Addressable Citations ({msg.citations.length}):
+                      <div className="mt-2.5 pt-2 border-t border-slate-800 space-y-1">
+                        <span className="text-[11px] font-semibold text-slate-400 block">
+                          Verified Citations ({msg.citations.length}):
                         </span>
                         <div className="space-y-1">
                           {msg.citations.map((c, idx) => (
@@ -904,14 +788,12 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
                       </div>
                     )}
 
-                    {/* Live Web Evidence & Clickable Citations */}
+                    {/* Live Web Sources */}
                     {!isUser && msg.web_sources && msg.web_sources.length > 0 && (
-                      <div className="mt-3 pt-2.5 border-t border-slate-800">
-                        <div className="flex items-center gap-1.5 mb-2">
+                      <div className="mt-2.5 pt-2 border-t border-slate-800 space-y-1.5">
+                        <div className="flex items-center gap-1.5 text-xs text-slate-300 font-bold">
                           <Globe className="w-3.5 h-3.5 text-emerald-400" />
-                          <span className="text-[10px] font-bold text-slate-300">
-                            Live Authoritative Web Evidence ({msg.web_sources.length}):
-                          </span>
+                          <span>Web Evidence Sources:</span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {msg.web_sources.map((src, idx) => (
@@ -920,81 +802,57 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
                               href={src.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="p-2.5 rounded-xl bg-slate-950/80 hover:bg-slate-900 border border-slate-800 hover:border-emerald-500/50 flex flex-col justify-between group transition-all"
+                              className="p-2 rounded-xl bg-slate-950/80 hover:bg-slate-950 border border-slate-800 hover:border-emerald-500/50 flex flex-col justify-between group transition-all"
                             >
-                              <div className="space-y-1">
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className="text-[11px] font-bold text-slate-200 group-hover:text-emerald-400 transition-colors line-clamp-1">
-                                    [{src.citation_id || idx + 1}] {src.title}
-                                  </span>
-                                  <ExternalLink className="w-3 h-3 text-slate-500 group-hover:text-emerald-400 shrink-0" />
-                                </div>
-                                <p className="text-[10px] text-slate-400 line-clamp-2">
-                                  {src.snippet}
-                                </p>
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-xs font-bold text-slate-200 group-hover:text-emerald-400 transition-colors line-clamp-1">
+                                  [{src.citation_id || idx + 1}] {src.title}
+                                </span>
+                                <ExternalLink className="w-3 h-3 text-slate-500 group-hover:text-emerald-400 shrink-0" />
                               </div>
-                              <div className="mt-2 flex items-center justify-between text-[9px] text-slate-500 border-t border-slate-900 pt-1">
-                                <span className="font-mono">{src.domain}</span>
-                                {src.is_authoritative && (
-                                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold border border-emerald-500/30">
-                                    Authoritative
-                                  </span>
-                                )}
-                              </div>
+                              <span className="text-[10px] text-slate-400 line-clamp-1 mt-0.5 font-mono">
+                                {src.domain}
+                              </span>
                             </a>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {/* Recommended Next Action & Follow-up Prompts */}
-                    {!isUser && (msg.follow_up_questions?.length > 0 || msg.recommended_next_action) && (
-                      <div className="mt-3 pt-2.5 border-t border-slate-800/80 space-y-2">
-                        {msg.recommended_next_action && (
-                          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
-                            <div className="text-[11px] text-slate-300">
-                              <span className="font-bold text-indigo-300">
-                                Adaptive Learning Engine:{' '}
-                              </span>
-                              {msg.recommended_next_action.reason}
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                onClick={() => {
-                                  if (msg.recommended_next_action.action_type === 'START_3_PHASE') {
-                                    setStudioTopic(msg.recommended_next_action.topic || '');
-                                    setActiveStudioView('phases');
-                                  } else if (
-                                    msg.recommended_next_action.action_type === 'OPEN_SMART_MENTOR'
-                                  ) {
-                                    setActiveStudioView('mentor');
-                                  } else if (onNavigateTab) {
-                                    onNavigateTab(msg.recommended_next_action.tab || 'assessment');
-                                  }
-                                }}
-                                className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold flex items-center gap-1 shrink-0"
-                              >
-                                <span>{msg.recommended_next_action.label}</span>
-                                <ArrowRight className="w-3 h-3" />
-                              </button>
-                            </div>
-                          </div>
-                        )}
+                    {/* Dynamic Follow-up Suggestions (Exactly 3 High-Relevance Chips) */}
+                    {!isUser && (msg.related_questions || msg.follow_up_questions)?.length > 0 && (
+                      <div className="mt-2.5 pt-2 border-t border-slate-800/80 space-y-1.5">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                          Related Questions:
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(msg.related_questions || msg.follow_up_questions).slice(0, 3).map((fq, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => handleSend(fq)}
+                              className="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-indigo-500/40 text-slate-300 hover:text-white text-xs transition-colors text-left cursor-pointer"
+                            >
+                              → {fq}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                        {msg.follow_up_questions?.length > 0 && (
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="text-[10px] text-slate-400 font-semibold mr-1">
-                              Follow-up Deepening:
-                            </span>
-                            {msg.follow_up_questions.map((fq, idx) => (
-                              <button
-                                key={idx}
-                                onClick={() => handleSend(fq)}
-                                className="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-indigo-500/40 text-slate-300 hover:text-white text-[11px] transition-colors text-left"
-                              >
-                                {fq}
-                              </button>
-                            ))}
+                    {/* Subtle Collapsible Reasoning Trace */}
+                    {!isUser && trace && (
+                      <div className="mt-2 pt-1 border-t border-slate-800/60">
+                        <button
+                          onClick={() => toggleTrace(msg.id)}
+                          className="text-[10px] text-slate-500 hover:text-slate-300 flex items-center gap-1 font-mono cursor-pointer"
+                        >
+                          <Cpu className="w-3 h-3" />
+                          <span>Technical reasoning trace {isTraceOpen ? '▲' : '▼'}</span>
+                        </button>
+                        {isTraceOpen && (
+                          <div className="mt-1.5 p-2 rounded-lg bg-slate-950 border border-slate-800 text-[10px] font-mono space-y-1 text-slate-400">
+                            <div>Intent: {trace.intent_detected || msg.intent} • Mode: {trace.mode_selected || selectedMode}</div>
+                            <div>Origin: {msg.source_origin} • Chunks: {trace.chunks_scanned || 0}</div>
                           </div>
                         )}
                       </div>
@@ -1002,7 +860,7 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
                   </div>
 
                   {isUser && (
-                    <div className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center shrink-0 border border-slate-700 mt-1">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-slate-800 flex items-center justify-center shrink-0 border border-slate-700 mt-1">
                       <User className="w-4 h-4 text-slate-300" />
                     </div>
                   )}
@@ -1011,15 +869,13 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
             })}
 
             {loading && (
-              <div className="flex gap-3 items-center text-slate-400 text-xs">
-                <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center">
+              <div className="flex gap-2.5 items-center text-slate-400 text-xs py-1">
+                <div className="w-7 h-7 rounded-xl bg-indigo-600 flex items-center justify-center">
                   <Bot className="w-4 h-4 text-white" />
                 </div>
-                <div className="flex items-center gap-2 p-3 rounded-2xl bg-slate-900 border border-slate-800">
-                  <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
-                  <span>
-                    Analyzing Question → Retrieving Relevant Knowledge & Context → Composing Explanation...
-                  </span>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                  <span>Synthesizing response...</span>
                 </div>
               </div>
             )}
@@ -1027,28 +883,40 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick Prompts Bar */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs shrink-0">
-            <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider shrink-0">
-              Try Asking:
-            </span>
-            {QUICK_PROMPTS.map((prompt, i) => (
-              <button
-                key={i}
-                onClick={() => handleSend(prompt)}
-                className={`px-3 py-1.5 rounded-lg border text-[11px] whitespace-nowrap transition-colors ${
-                  i === 0
-                    ? 'bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/40 text-amber-300 font-bold'
-                    : 'bg-slate-900 hover:bg-slate-800 border-slate-800 hover:border-slate-700 text-slate-300'
-                }`}
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
+          {/* Quick Starter Chips (Only shown when thread is fresh) */}
+          {messages.length <= 1 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs shrink-0">
+              <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider shrink-0">
+                Try:
+              </span>
+              {QUICK_PROMPTS.slice(0, 4).map((prompt, i) => (
+                <button
+                  key={i}
+                  onClick={() => handleSend(prompt)}
+                  className="px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs whitespace-nowrap transition-colors cursor-pointer"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          )}
 
-          {/* Input Box */}
+          {/* Fixed Bottom Input Composer */}
           <div className="p-2 rounded-2xl bg-slate-900 border border-slate-800 flex items-center gap-2 shadow-xl shrink-0">
+            <button
+              type="button"
+              onClick={() => setLiveWebSearchEnabled(!liveWebSearchEnabled)}
+              className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
+                liveWebSearchEnabled
+                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40 shadow-sm'
+                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
+              }`}
+              title="Toggle Live Web Grounding"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Web:</span> {liveWebSearchEnabled ? 'ON' : 'OFF'}
+            </button>
+
             <input
               type="text"
               value={input}
@@ -1056,29 +924,17 @@ Try asking *"What is artificial intelligence?"*, *"Explain operating systems"*, 
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               placeholder={
                 scopedDocument
-                  ? `Ask anything about ${scopedDocument}, or type "Teach me this"...`
-                  : `Ask anything — general CS/AI/coding questions, follow-ups, uploaded material, or "Quiz me"...`
+                  ? `Ask question grounded in ${scopedDocument}...`
+                  : `Ask anything — 2+2, Python code, AI concepts, or "Quiz me"...`
               }
-              className="flex-1 bg-transparent px-3 py-2 text-xs text-slate-200 outline-none placeholder:text-slate-500"
+              className="flex-1 bg-transparent px-2.5 py-2 text-xs sm:text-sm text-slate-200 outline-none placeholder:text-slate-500"
             />
-            <button
-              type="button"
-              onClick={() => setLiveWebSearchEnabled(!liveWebSearchEnabled)}
-              className={`px-3 py-1.5 rounded-xl border text-[11px] font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
-                liveWebSearchEnabled
-                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40 shadow-sm'
-                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
-              }`}
-              title="Toggle Live Web Grounding & Citations"
-            >
-              <Globe className="w-3.5 h-3.5" />
-              <span>Web Search: {liveWebSearchEnabled ? 'ON' : 'OFF'}</span>
-            </button>
+
             <button
               onClick={() => handleSend()}
               disabled={!input.trim() || loading}
-              className="p-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white transition-all shadow-md shrink-0 cursor-pointer"
-              title="Send message (Enter)"
+              className="p-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white transition-all shadow shrink-0 cursor-pointer"
+              title="Send message"
             >
               <Send className="w-4 h-4" />
             </button>

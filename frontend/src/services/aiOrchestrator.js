@@ -573,15 +573,43 @@ export class AIOrchestrator {
   }
 
   /**
-   * Safely evaluates arithmetic expressions (e.g. "2+2", "What is 2+2?", "15 * 4", "100 / 5").
+   * Normalizes natural language and word-based math queries into clean algebraic syntax.
+   */
+  static normalizeMathQuery(query = '') {
+    const WORD_NUMS = {
+      zero: '0', one: '1', two: '2', three: '3', four: '4',
+      five: '5', six: '6', seven: '7', eight: '8', nine: '9',
+      ten: '10', eleven: '11', twelve: '12', thirteen: '13',
+      fourteen: '14', fifteen: '15', sixteen: '16', seventeen: '17',
+      eighteen: '18', nineteen: '19', twenty: '20', thirty: '30',
+      forty: '40', fifty: '50', sixty: '60', seventy: '70',
+      eighty: '80', ninety: '90', hundred: '100'
+    };
+
+    let s = String(query).toLowerCase().trim();
+    s = s.replace(/^(what is|calculate|evaluate|solve|compute|what's|find|the value of|how much is|can you solve|tell me what is|answer to)\s+/i, '');
+    s = s.replace(/[?=.!\s]+$/, '');
+    s = s.replace(/\b(?:add|the sum of|sum of)\s+(\w+)\s+(?:and|\+)\s+(\w+)\b/gi, (m, a, b) => `${a} + ${b}`);
+    s = s.replace(/\b(?:multiply)\s+(\w+)\s+(?:by|\*)\s+(\w+)\b/gi, (m, a, b) => `${a} * ${b}`);
+    s = s.replace(/\b(?:divide)\s+(\w+)\s+(?:by|\/)\s+(\w+)\b/gi, (m, a, b) => `${a} / ${b}`);
+    s = s.replace(/\b(?:subtract)\s+(\w+)\s+(?:from)\s+(\w+)\b/gi, (m, a, b) => `${b} - ${a}`);
+    s = s.replace(/\b(plus|added to)\b/gi, '+');
+    s = s.replace(/\b(minus|subtracted by)\b/gi, '-');
+    s = s.replace(/\b(times|multiplied by)\b/gi, '*');
+    s = s.replace(/\b(divided by|over)\b/gi, '/');
+    for (const [word, digit] of Object.entries(WORD_NUMS)) {
+      s = s.replace(new RegExp('\\b' + word + '\\b', 'gi'), digit);
+    }
+    s = s.replace(/\bthe\b/gi, '');
+    return s.replace(/\s+/g, ' ').trim();
+  }
+
+  /**
+   * Safely evaluates arithmetic expressions (e.g. "2+2", "What is 2+2?", "two plus two", "15 * 4", "100 / 5").
    * Completely bypasses heavy RAG/LLM pipelines and returns exact numerical results directly.
    */
   static evaluateArithmetic(query = '') {
-    const cleaned = String(query)
-      .toLowerCase()
-      .replace(/^(what is|calculate|evaluate|solve|compute|what's|find|the value of)\s+/i, '')
-      .replace(/[?=.!\s]+$/, '')
-      .trim();
+    const cleaned = this.normalizeMathQuery(query);
 
     // Must consist strictly of digits, basic math operators, decimals, and parentheses
     if (!/^[\d\s+\-*/%^().]+$/.test(cleaned)) {
@@ -598,7 +626,7 @@ export class AIOrchestrator {
         return null;
       }
       // Safe execution since characters are strictly validated
-      const result = Function(`"use strict"; return (${sanitized});`)();
+      const result = Function('"use strict"; return (' + sanitized + ');')();
       if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
         const formatted = Number.isInteger(result) ? result : Math.round(result * 10000) / 10000;
         return {
@@ -1307,42 +1335,118 @@ In PostgreSQL and enterprise ledger engines, readers access consistent MVCC snap
 
     // Case D: "Give me an example" or "Give me another example"
     if (/\b(another example|second example|give me an example|example)\b/i.test(q)) {
-      const isAnother = /\b(another|second|more)\b/i.test(q);
-      const brief = `**${isAnother ? 'Additional Worked Example' : 'Concrete Worked Example'} — ${activeTopic}**
-${
-  isAnother
-    ? `Consider a real-world production scenario for *${activeTopic}*: two automated workers simultaneously process overlapping tasks. By validating preconditions first and executing in a deterministic sequence, both tasks complete with zero conflicts.`
-    : `Suppose we trace *${activeTopic}* with concrete inputs: Step 1 verifies the initial state, Step 2 applies the core transformation rule, and Step 3 confirms the output satisfies the target invariant.`
-}
+      // 1. Math & arithmetic topics
+      if (/\b(math|arithmetic|calculation|number|addition|algebra)\b/i.test(activeTopic) || /[\d+\-*/]/.test(activeTopic)) {
+        const brief = `**Concrete Math Example — Arithmetic & Order of Operations**
+Suppose you evaluate $2 + 3 \\times 4$:
+By the standard order of operations (PEMDAS / BODMAS), perform multiplication before addition:
+1. First, multiply: $3 \\times 4 = 12$.
+2. Then, add: $2 + 12 = 14$.
 
-**Example**
-${
-  isAnother
-    ? `In a banking or inventory transfer between Account #101 and Account #205, both transactions lock #101 first and #205 second, completing in 2 ms without deadlocking.`
-    : `When scheduling 3 tasks with burst lengths [4 ms, 2 ms, 6 ms], prioritizing the shortest job first [2 ms → 4 ms → 6 ms] reduces average waiting time from 3.33 ms down to 2.00 ms.`
-}`;
+**Key Rule**
+Multiplication and division take precedence over addition and subtraction.`;
 
-      const explanation = `**${isAnother ? 'Second Real-World Worked Example' : 'Step-by-Step Worked Example'} — ${activeTopic}**
-Walking through a concrete numerical and systems example makes the mechanics of *${activeTopic}* immediately tangible.
+        const explanation = `**Step-by-Step Mathematical Worked Example**
+Let's walk through concrete arithmetic evaluation and operator precedence:
 
-*Scenario Setup*
-${
-  isAnother
-    ? `Imagine two concurrent transactions $T_1$ and $T_2$ operating on shared resources $R_A$ and $R_B$ under high load.`
-    : `Consider a system applying *${activeTopic}* to a sequence of three incoming requests with explicit resource and timing constraints.`
-}
+*Example 1: Basic Addition*
+$$2 + 2 = 4$$
+Starting at $2$ on the real number line and advancing $2$ discrete units yields exactly $4$.
+
+*Example 2: Order of Operations (PEMDAS / BODMAS)*
+Evaluate: $$5 + 2 \\times 3 - 4$$
+1. **Multiplication**: Compute $2 \\times 3 = 6$. The expression becomes $5 + 6 - 4$.
+2. **Addition & Subtraction (Left-to-Right)**: Compute $5 + 6 = 11$, then $11 - 4 = 7$.
+3. **Result**: **7**.`;
+
+        return {
+          topic: 'Mathematics & Arithmetic',
+          brief,
+          explanation,
+          followUps: [
+            'Give me another math problem.',
+            'Explain PEMDAS / BODMAS rules in detail.',
+            'Quiz me.'
+          ]
+        };
+      }
+
+      // 2. Programming / Computer Science topics
+      if (/\b(python|programming|code|variable|function|algorithm|search|sort)\b/i.test(activeTopic)) {
+        const brief = `**Concrete Code Example — ${activeTopic}**
+Here is a practical code pattern demonstrating *${activeTopic}*:
+
+\`\`\`python
+# Practical implementation of ${activeTopic}
+def solve_problem(data):
+    # Process inputs systematically
+    result = [item * 2 for item in data if item > 0]
+    return result
+
+print(solve_problem([1, -2, 3, 4]))  # Output: [2, 6, 8]
+\`\`\`
+
+**Key Takeaway**
+Clean function boundaries and explicit transformation steps keep code maintainable and testable.`;
+
+        const explanation = `**Step-by-Step Code Walkthrough — ${activeTopic}**
+Walking through a concrete implementation makes the core principles of *${activeTopic}* easy to follow.
+
+*Code Example*
+\`\`\`python
+def process_data(items: list[int]) -> dict:
+    \"\"\"Demonstrates ${activeTopic} with clean input validation and output mapping.\"\"\"
+    if not items:
+        return {"count": 0, "total": 0}
+    
+    total = sum(items)
+    average = total / len(items)
+    return {"count": len(items), "total": total, "average": average}
+
+# Execution:
+sample = [10, 20, 30, 40]
+print(process_data(sample))  # {'count': 4, 'total': 100, 'average': 25.0}
+\`\`\`
 
 **How It Works**
-1. *Input Verification*: Check that all inputs satisfy baseline preconditions before modifying any state.
-2. *Deterministic Execution*: Apply the transformation rule step by step while recording intermediate state transitions.
-3. *Invariant Check*: Confirm that total conserved quantities and safety invariants hold after completion.
+1. *Input Handling*: Accepts arguments cleanly and handles boundary cases (such as empty collections).
+2. *Computation*: Applies standard algorithms and data structures.
+3. *Return Value*: Produces a predictable, testable output data structure.`;
 
-**Example**
-${
-  isAnother
-    ? `Transaction $T_1$ needs $(R_A, R_B)$ and Transaction $T_2$ also needs $(R_B, R_A)$. Because the engine enforces global ascending order ($R_A \\prec R_B$), both $T_1$ and $T_2$ request $R_A$ first. $T_1$ acquires $R_A$ and $R_B$, commits, and releases both locks so $T_2$ proceeds immediately afterward.`
-    : `With three tasks $P_1, P_2, P_3$ requiring $[6\\text{ ms}, 2\\text{ ms}, 4\\text{ ms}]$, executing $P_2 (2\\text{ ms}) \\to P_3 (4\\text{ ms}) \\to P_1 (6\\text{ ms})$ yields waiting times of $0\\text{ ms}, 2\\text{ ms}, 6\\text{ ms}$ (average $2.67\\text{ ms}$), proving how structured ordering optimizes system performance.`
-}`;
+        return {
+          topic: activeTopic,
+          brief,
+          explanation,
+          followUps: [
+            'Show another code variation.',
+            'What is the time complexity of this code?',
+            'Quiz me on this concept.'
+          ]
+        };
+      }
+
+      // 3. General academic / course topic example
+      const brief = `**Concrete Worked Example — ${activeTopic}**
+Suppose we examine *${activeTopic}* in a practical scenario:
+1. *Setup*: Identify the initial conditions and core goals.
+2. *Application*: Apply the primary principles of *${activeTopic}* step by step.
+3. *Outcome*: Verify that the final result meets expected criteria.
+
+**Key Insight**
+Breaking *${activeTopic}* into observable steps makes both theoretical analysis and real-world implementation straightforward.`;
+
+      const explanation = `**Step-by-Step Worked Example — ${activeTopic}**
+Walking through a real-world scenario demonstrates how *${activeTopic}* functions in practice.
+
+*Practical Scenario*
+Consider a real-world problem where *${activeTopic}* is applied:
+• **Step 1 (Context)**: Establish the requirements and relevant variables.
+• **Step 2 (Execution)**: Carry out the systematic process using established methods.
+• **Step 3 (Verification)**: Test the resulting output against expected benchmarks to ensure correctness.
+
+**Key Takeaways**
+• Clear assumptions prevent unexpected edge-case errors.
+• Systematic execution ensures repeatable and verifiable outcomes.`;
 
       return {
         topic: activeTopic,
@@ -1357,28 +1461,14 @@ ${
     }
 
     // Case E: "Explain that more simply" (default follow-up simplification)
-    const brief = `**Simplified Intuition — ${activeTopic}**
-In plain everyday terms, *${activeTopic}* is like a clear traffic rulebook that keeps everything moving smoothly without collisions or confusion.
+    const isMathTopic = /\b(math|arithmetic|calculation|number|addition)\b/i.test(activeTopic);
+    const brief = isMathTopic
+      ? `**Simplified Intuition — Basic Arithmetic**\nAddition is simply combining quantities together. If you have 2 apples and receive 2 more, you now have a total of 4 apples.`
+      : `**Simplified Intuition — ${activeTopic}**\nIn plain everyday terms, *${activeTopic}* can be understood as a clear set of steps to achieve a reliable result without unnecessary complexity.\n\n**Key Idea**\nUnderstand the starting situation, follow one clear step-by-step path, and verify the outcome.`;
 
-**Key Idea**
-Check what is available first, follow one clear step-by-step order, and confirm the result before moving to the next task.
-
-**Example**
-Just like checking that a lane is clear before merging onto a highway, *${activeTopic}* checks safety conditions before committing an action.`;
-
-    const explanation = `**Simplified Everyday Explanation — ${activeTopic}**
-Let's strip away all technical jargon and look at the core intuition behind *${activeTopic}*.
-
-*Everyday Analogy*
-Imagine organizing a busy kitchen where several chefs share ovens and prep stations. Without a clear system, chefs bump into each other or wait forever holding half the ingredients. *${activeTopic}* is the kitchen coordinator that ensures every chef gets what they need in a predictable, fair order.
-
-**Core Concept**
-1. *Know What You Have*: Keep an accurate count of current state and resources.
-2. *Follow a Clear Order*: Handle steps in a consistent sequence so nobody gets stuck waiting in a circle.
-3. *Verify Completion*: Confirm each step finishes cleanly before starting the next dependent step.
-
-**Example**
-If Chef A needs the mixer and the oven, they reserve them in order, finish baking, and immediately free both for Chef B.`;
+    const explanation = isMathTopic
+      ? `**Simplified Everyday Explanation — Numbers & Operations**\nLet's strip away all formal mathematics and visualize this on a simple number line:\n\n• Start at zero.\n• Take $2$ steps forward to land at $2$.\n• Take another $2$ steps forward: $2 + 2 = 4$.\n\nEvery arithmetic operation is a predictable movement along this line.`
+      : `**Simplified Everyday Explanation — ${activeTopic}**\nLet's strip away complex jargon and look at the core intuition behind *${activeTopic}*.\n\n*Everyday Analogy*\nThink of *${activeTopic}* like following a well-written recipe in a kitchen: you prepare the ingredients first, follow each instruction in sequence, and produce the desired dish reliably every single time.\n\n**Core Principles**\n1. *Starting Point*: Know what you have to work with.\n2. *Clear Sequence*: Move forward one clear step at a time.\n3. *Quality Check*: Confirm the final outcome matches what was intended.`;
 
     return {
       topic: activeTopic,

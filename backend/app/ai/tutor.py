@@ -7,7 +7,7 @@ from sqlalchemy.future import select
 from backend.app.models.entities import Course, Document, Concept, Topic, Conversation, ConversationMessage, Citation
 from backend.app.retrieval.hybrid_retriever import HybridRetriever
 from backend.app.ai.grounding_gate import GroundingGate
-from backend.app.ai.provider import ai_provider
+from backend.app.ai.provider import ai_provider, normalize_math_text
 from backend.app.services.web_search import WebSearchService
 
 logger = logging.getLogger("edupath.ai.tutor")
@@ -67,8 +67,8 @@ class GroundedTutorService:
         q_clean = query.strip().rstrip("?").lower()
 
         # 1. Topic-tailored questions
-        # Math & arithmetic calculations (e.g. 2+2, calculate 15 * 4)
-        math_check = re.sub(r'^(what is|calculate|evaluate|solve|compute|what\'s|find)\s+', '', q_clean).strip().rstrip('?=. ')
+        # Math & arithmetic calculations (e.g. 2+2, two plus two, calculate 15 * 4)
+        math_check = normalize_math_text(q_clean)
         if re.match(r'^[\d\s\+\-\*\/\%\^\(\)\.]+$', math_check) and any(c in math_check for c in '+-*/%^') and any(c.isdigit() for c in math_check):
             return [
                 "Show step-by-step arithmetic operations and order of operations (PEMDAS / BODMAS).",

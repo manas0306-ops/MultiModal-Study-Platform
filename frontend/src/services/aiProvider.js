@@ -86,7 +86,7 @@ export class ConversationContextManager {
       }
       if (!lastActiveTopic && m.role === 'user') {
         const cleaned = m.content.trim();
-        if (cleaned.length > 4 && !/^(explain that|give me an|another|more simply|quiz me|why|how about)/i.test(cleaned)) {
+        if (cleaned.length >= 2 && !/^(explain that|give me an|another|more simply|quiz me|why|how about)/i.test(cleaned)) {
           lastActiveTopic = cleaned;
         }
       }
@@ -97,7 +97,7 @@ export class ConversationContextManager {
       recentMessages,
       relevantOlderMessages,
       conversationSummary,
-      lastActiveTopic: lastActiveTopic || 'Operating Systems & Computer Science Fundamentals',
+      lastActiveTopic: lastActiveTopic || 'General Knowledge & Course Concepts',
       lastAssistantExplanation,
       relevantMaterialCount: Array.isArray(uploadedMaterialChunks) ? uploadedMaterialChunks.length : 0
     };

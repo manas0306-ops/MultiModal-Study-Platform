@@ -67,6 +67,40 @@ def _safe_eval_math(expr_str: str) -> Optional[float]:
         return None
 
 
+WORD_NUMS_MAP = {
+    'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
+    'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9',
+    'ten': '10', 'eleven': '11', 'twelve': '12', 'thirteen': '13',
+    'fourteen': '14', 'fifteen': '15', 'sixteen': '16', 'seventeen': '17',
+    'eighteen': '18', 'nineteen': '19', 'twenty': '20', 'thirty': '30',
+    'forty': '40', 'fifty': '50', 'sixty': '60', 'seventy': '70',
+    'eighty': '80', 'ninety': '90', 'hundred': '100'
+}
+
+
+def normalize_math_text(query: str) -> str:
+    """Normalizes natural language math questions like 'two plus two', 'what is 2 + 2' to clean arithmetic."""
+    s = query.lower().strip()
+    s = re.sub(
+        r'^(what is|calculate|evaluate|solve|compute|what\'s|find|the value of|how much is|can you solve|tell me what is|answer to)\s+',
+        '',
+        s
+    )
+    s = s.rstrip('?=. ')
+    s = re.sub(r'\b(?:add|the sum of|sum of)\s+(\w+)\s+(?:and|\+)\s+(\w+)\b', r'\1 + \2', s)
+    s = re.sub(r'\b(?:multiply)\s+(\w+)\s+(?:by|\*)\s+(\w+)\b', r'\1 * \2', s)
+    s = re.sub(r'\b(?:divide)\s+(\w+)\s+(?:by|\/)\s+(\w+)\b', r'\1 / \2', s)
+    s = re.sub(r'\b(?:subtract)\s+(\w+)\s+(?:from)\s+(\w+)\b', r'\2 - \1', s)
+    s = re.sub(r'\b(plus|added to)\b', '+', s)
+    s = re.sub(r'\b(minus|subtracted by)\b', '-', s)
+    s = re.sub(r'\b(times|multiplied by)\b', '*', s)
+    s = re.sub(r'\b(divided by|over)\b', '/', s)
+    for word, digit in WORD_NUMS_MAP.items():
+        s = re.sub(r'\b' + word + r'\b', digit, s)
+    s = re.sub(r'\bthe\b', '', s)
+    return re.sub(r'\s+', ' ', s).strip()
+
+
 
 class ConversationContextManager:
     """
@@ -157,11 +191,7 @@ class LocalAIProvider:
             evidence_text = prompt.split("RETRIEVED COURSE EVIDENCE:")[1].split("USER QUESTION:")[0].strip()
 
         # 0. Simple Arithmetic / Math Calculation (Direct Proportionate Response)
-        math_clean = re.sub(
-            r'^(what is|calculate|evaluate|solve|compute|what\'s|find|the value of)\s+',
-            '',
-            q_lower
-        ).strip().rstrip('?=. ')
+        math_clean = normalize_math_text(q_lower)
         if re.match(r'^[\d\s\+\-\*\/\%\^\(\)\.]+$', math_clean) and any(c in math_clean for c in '+-*/%^'):
             try:
                 res = _safe_eval_math(math_clean)
